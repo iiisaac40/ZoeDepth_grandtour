@@ -227,6 +227,17 @@ DATASETS_CONFIG = {
         "min_depth": 1e-3,
         "max_depth": 80,
     },
+     "grandtour": {
+        "dataset": "grandtour",
+        "grandtour_root": "home/grand_tour_depth_benchmark/evaluation/datasets/",
+        "eigen_crop": False,
+        "garg_crop": True,
+        "do_kb_crop": True,
+        "min_depth_eval": 1e-3,
+        "max_depth_eval": 80,
+        "min_depth": 1e-3,
+        "max_depth": 80,
+    },
 }
 
 ALL_INDOOR = ["nyu", "ibims", "sunrgbd", "diode_indoor", "hypersim_test"]
