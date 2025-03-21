@@ -37,7 +37,7 @@ class ToTensor(object):
         # self.normalize = transforms.Normalize(
         #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         self.normalize = lambda x : x
-        # self.resize = transforms.Resize(resize_shape)
+        # self.resize = transforms.Resize((375, 1242))
 
     def __call__(self, sample):
         image, depth = sample['image'], sample['depth']
@@ -82,33 +82,47 @@ class ToTensor(object):
 
 
 class GRANDTOUR(Dataset):
-    def __init__(self, data_dir_root):
-        import glob
-        # image paths are of the form <data_dir_root>/{HR, LR}/<scene>/{color, depth_filled}/*.png
-        self.image_files = glob.glob(os.path.join(
-            data_dir_root, "test_color", '*.png'))
-        self.depth_files = [r.replace("test_color", "test_depth")
-                            for r in self.image_files]
+    def __init__(self, data_dir_root, mission='2024-11-02-17-10-25', accumulate_level='100', do_kb_crop=True):
+        self.data_dir_root = data_dir_root
+        # image paths are of the form <data_dir_root>/<camera name>/*.png
+        # depth image paths are of the form <data_dir_root>/depth/<accumulate level>/<camera name>/*.png
+        filelist_path = os.path.join(data_dir_root, mission, f"accumulate_{accumulate_level}_pairs.txt")
+        with open(filelist_path, 'r') as f:
+            self.filelist = f.read().splitlines()
+        
         self.transform = ToTensor()
+        self.do_kb_crop = True
 
     def __getitem__(self, idx):
-        image_path = self.image_files[idx]
-        depth_path = self.depth_files[idx]
+        image_path = os.path.join(self.data_dir_root, self.filelist[idx].split(' ')[0])
+        depth_path = os.path.join(self.data_dir_root, self.filelist[idx].split(' ')[1])
+        
 
         image = Image.open(image_path)
         depth = Image.open(depth_path)
         depth = cv2.imread(depth_path, cv2.IMREAD_ANYCOLOR |
-                           cv2.IMREAD_ANYDEPTH)
-        print("dpeth min max", depth.min(), depth.max())
+                           cv2.IMREAD_ANYDEPTH) / 1000.0
+        depth = Image.fromarray(depth)
 
-        # print(np.shape(image))
-        # print(np.shape(depth))
+        # if self.do_kb_crop:
+        #     if idx == 0:
+        #         print("Using KB input crop")
+        #     height = image.height
+        #     width = image.width
+        #     top_margin = int(height - 352)
+        #     left_margin = int((width - 1216) / 2)
+        #     depth = depth.crop(
+        #         (left_margin, top_margin, left_margin + 1216, top_margin + 352))
+        #     image = image.crop(
+        #         (left_margin, top_margin, left_margin + 1216, top_margin + 352))
+        #     # uv = uv[:, top_margin:top_margin + 352, left_margin:left_margin + 1216]
 
-        # depth[depth > 8] = -1
-
-        
         image = np.asarray(image, dtype=np.float32) / 255.0
         # depth = np.asarray(depth, dtype=np.uint16) /1.
+        depth = np.asarray(depth, dtype=np.float32) / 1.
+        depth[depth > 80] = -1
+        print("gt dpeth min max", depth.min(), depth.max())
+
         depth = depth[..., None]
         sample = dict(image=image, depth=depth)
 
@@ -121,11 +135,11 @@ class GRANDTOUR(Dataset):
         return sample
 
     def __len__(self):
-        return len(self.image_files)
+        return len(self.filelist)
 
 
-def get_grandtour_loader(data_dir_root, batch_size=1, **kwargs):
-    dataset = GRANDTOUR(data_dir_root)
+def get_grandtour_loader(data_dir_root, mission, accumulate_level, batch_size=1, **kwargs):
+    dataset = GRANDTOUR(data_dir_root, mission, accumulate_level, )
     return DataLoader(dataset, batch_size, **kwargs)
 
 

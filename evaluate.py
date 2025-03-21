@@ -26,8 +26,13 @@ import argparse
 from pprint import pprint
 
 import torch
+import torch.nn
+import torch.nn as nn
 from zoedepth.utils.easydict import EasyDict as edict
 from tqdm import tqdm
+import numpy as np
+import csv
+
 
 from zoedepth.data.data_mono import DepthDataLoader
 from zoedepth.models.builder import build_model
@@ -79,6 +84,63 @@ def evaluate(model, test_loader, config, round_vals=True, round_precision=3):
             [715.0873]).cuda())  # This magic number (focal) is only used for evaluating BTS model
         pred = infer(model, image, dataset=sample['dataset'][0], focal=focal)
 
+        if i % 10 == 0 and 'vis_res' in config and config.vis_res == 'TRUE':  # Visualize every 10th sample
+            import cv2
+            import matplotlib.pyplot as plt
+            import os
+
+            img_np = image[0].cpu().numpy().transpose(1, 2, 0)
+            img_np = np.clip(img_np, 0, 1)
+
+            pred_np = nn.functional.interpolate(
+                    pred, depth.shape[-2:], mode='bilinear', align_corners=True)
+            pred_np = pred_np[0].cpu().numpy()
+            depth_np = depth[0].cpu().numpy()
+
+            pred_np = pred_np.squeeze()
+            depth_np = depth_np.squeeze()
+
+            valid_mask_np = (depth_np > 0) & (depth_np < 60)
+
+            error_map = np.abs(pred_np - depth_np)
+            min_error, max_error = np.min(error_map), np.max(error_map)
+            error_map[~valid_mask_np] = np.nan 
+            
+            print(f"pred depth: min: {np.min(pred_np)}, max: {np.max(pred_np)}, {pred_np.shape}")
+            print(f"depth_np: min: {np.min(depth_np)}, max: {np.max(depth_np)}, {depth_np.shape}")
+                    
+            # Create output dir
+            os.makedirs("/home/output/visualizations/GrandTour_ZoeDepth_snow", exist_ok=True)
+                        
+            # Add prediction visualization to the plot
+            plt.figure(figsize=(30, 20))
+            
+            # Original Image
+            plt.subplot(221)
+            plt.imshow(img_np)
+            plt.title("Original Image")
+            
+            # Error Map
+            plt.subplot(222)
+            plt.imshow(error_map, cmap='turbo_r', vmin=min_error, vmax=max_error)
+            plt.colorbar(label='Depth (m)')
+            plt.title("Error Map")
+            
+            # Prediction
+            plt.subplot(223)
+            plt.imshow(pred_np, cmap='turbo_r', vmin=np.min(depth_np), vmax=np.max(depth_np))
+            plt.colorbar(label='Depth (m)')
+            plt.title("Predicted Depth")
+
+            # GT depth
+            plt.subplot(224)
+            plt.imshow(depth_np, cmap='turbo_r', vmin=np.min(depth_np), vmax=np.max(depth_np))
+            plt.colorbar(label='Depth (m)')
+            plt.title("GT Depth")
+            
+            plt.savefig(f"/home/output/visualizations/GrandTour_ZoeDepth_snow/sample_{i}.png")
+            plt.close()
+
         # Save image, depth, pred for visualization
         if "save_images" in config and config.save_images:
             import os
@@ -109,7 +171,8 @@ def evaluate(model, test_loader, config, round_vals=True, round_precision=3):
     return metrics
 
 def main(config):
-    model = build_model(config)
+    # model = build_model(config)
+    model = torch.hub.load(".", "ZoeD_K", source="local", pretrained=True) if 'pretrained_resource' in config and '_K.pt' in config.pretrained_resource else torch.hub.load(".", "ZoeD_NK", source="local", pretrained=True)
     test_loader = DepthDataLoader(config, 'online_eval').data
     model = model.cuda()
     metrics = evaluate(model, test_loader, config)
@@ -117,6 +180,14 @@ def main(config):
     print(metrics)
     print(f"{colors.reset}")
     metrics['#params'] = f"{round(count_parameters(model, include_all=True)/1e6, 2)}M"
+
+    csv_file = config.csv_path
+    with open(csv_file, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=metrics.keys())
+        if f.tell() == 0:
+            writer.writeheader() 
+        writer.writerow(metrics)
+
     return metrics
 
 

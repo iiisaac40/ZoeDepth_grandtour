@@ -43,6 +43,11 @@ import torch.utils.data.distributed
 from PIL import Image
 from torchvision.transforms import ToTensor
 
+import os
+import sys
+sys.path.append('/home/grand_tour_depth_benchmark/utils')
+from depth_alignment_utils import align_depth_least_squares
+
 
 class RunningAverage:
     def __init__(self):
@@ -242,6 +247,12 @@ def compute_metrics(gt, pred, interpolate=True, garg_crop=False, eigen_crop=True
         else:
             eval_mask = np.ones(valid_mask.shape)
     valid_mask = np.logical_and(valid_mask, eval_mask)
+
+    if 'depth_alignment' in config and config.depth_alignment == 'TRUE':
+        aligned_pred, _, _ = align_depth_least_squares(pred, gt_depth, valid_mask)
+        aligned_pred = np.clip(aligned_pred, a_min=config.min_depth, a_max=config.max_depth)
+        pred = aligned_pred
+
     return compute_errors(gt_depth[valid_mask], pred[valid_mask])
 
 

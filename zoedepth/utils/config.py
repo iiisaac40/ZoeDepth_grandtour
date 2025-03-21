@@ -229,14 +229,14 @@ DATASETS_CONFIG = {
     },
      "grandtour": {
         "dataset": "grandtour",
-        "grandtour_root": "home/grand_tour_depth_benchmark/evaluation/datasets/",
+        "grandtour_root": "/home/output/GrandTour/",
         "eigen_crop": False,
         "garg_crop": True,
-        "do_kb_crop": True,
+        "do_kb_crop": False,
         "min_depth_eval": 1e-3,
-        "max_depth_eval": 80,
+        "max_depth_eval": 60,
         "min_depth": 1e-3,
-        "max_depth": 80,
+        "max_depth": 60,
     },
 }
 

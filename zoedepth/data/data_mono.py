@@ -49,6 +49,7 @@ from .ibims import get_ibims_loader
 from .sun_rgbd_loader import get_sunrgbd_loader
 from .vkitti import get_vkitti_loader
 from .vkitti2 import get_vkitti2_loader
+from .grandtour import get_grandtour_loader
 
 from .preprocess import CropParams, get_white_border, get_black_border
 
@@ -123,6 +124,10 @@ class DepthDataLoader(object):
         if config.dataset == 'ddad':
             self.data = get_ddad_loader(config.ddad_root, resize_shape=(
                 352, 1216), batch_size=1, num_workers=1)
+            return
+
+        if config.dataset == 'grandtour':
+            self.data = get_grandtour_loader(config.grandtour_root, config.mission, config.accumulate_level, batch_size=1, num_workers=0)
             return
 
         img_size = self.config.get("img_size", None)
