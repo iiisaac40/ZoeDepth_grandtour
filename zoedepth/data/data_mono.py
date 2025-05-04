@@ -127,7 +127,7 @@ class DepthDataLoader(object):
             return
 
         if config.dataset == 'grandtour':
-            self.data = get_grandtour_loader(config.grandtour_root, config.mission, config.accumulate_level, batch_size=1, num_workers=0)
+            self.data = get_grandtour_loader(config.grandtour_root, config.accumulate_level, batch_size=1, num_workers=0)
             return
 
         img_size = self.config.get("img_size", None)

@@ -82,20 +82,21 @@ class ToTensor(object):
 
 
 class GRANDTOUR(Dataset):
-    def __init__(self, data_dir_root, mission='2024-11-02-17-10-25', accumulate_level='100', do_kb_crop=True):
+    def __init__(self, data_dir_root, accumulate_level='100', do_kb_crop=True):
         self.data_dir_root = data_dir_root
         # image paths are of the form <data_dir_root>/<camera name>/*.png
         # depth image paths are of the form <data_dir_root>/depth/<accumulate level>/<camera name>/*.png
-        filelist_path = os.path.join(data_dir_root, mission, f"accumulate_{accumulate_level}_pairs.txt")
+        filelist_path = os.path.join(data_dir_root, 'txt_files', f"test_{accumulate_level}_files.txt")
         with open(filelist_path, 'r') as f:
             self.filelist = f.read().splitlines()
+            # self.filelist.sort()
         
         self.transform = ToTensor()
         self.do_kb_crop = True
 
     def __getitem__(self, idx):
-        image_path = os.path.join(self.data_dir_root, self.filelist[idx].split(' ')[0])
-        depth_path = os.path.join(self.data_dir_root, self.filelist[idx].split(' ')[1])
+        image_path = os.path.join(self.data_dir_root, 'GrandTour', self.filelist[idx].split(' ')[0])
+        depth_path = os.path.join(self.data_dir_root, 'GrandTour', self.filelist[idx].split(' ')[1])
         
 
         image = Image.open(image_path)
@@ -132,14 +133,16 @@ class GRANDTOUR(Dataset):
         if idx == 0:
             print(sample["image"].shape)
 
+        sample['image_path'] = image_path
+
         return sample
 
     def __len__(self):
         return len(self.filelist)
 
 
-def get_grandtour_loader(data_dir_root, mission, accumulate_level, batch_size=1, **kwargs):
-    dataset = GRANDTOUR(data_dir_root, mission, accumulate_level, )
+def get_grandtour_loader(data_dir_root, accumulate_level, batch_size=1, **kwargs):
+    dataset = GRANDTOUR(data_dir_root, accumulate_level, )
     return DataLoader(dataset, batch_size, **kwargs)
 
 

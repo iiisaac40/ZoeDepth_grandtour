@@ -32,6 +32,7 @@ from zoedepth.utils.easydict import EasyDict as edict
 from tqdm import tqdm
 import numpy as np
 import csv
+import os
 
 
 from zoedepth.data.data_mono import DepthDataLoader
@@ -85,61 +86,126 @@ def evaluate(model, test_loader, config, round_vals=True, round_precision=3):
         pred = infer(model, image, dataset=sample['dataset'][0], focal=focal)
 
         if i % 10 == 0 and 'vis_res' in config and config.vis_res == 'TRUE':  # Visualize every 10th sample
+            print(f"saving!!! {config.csv_path.split('/')[-1].split('.')[-2]}")
+
             import cv2
             import matplotlib.pyplot as plt
             import os
 
+            valid_mask = (depth >= config.min_depth) & (depth <= config.max_depth)
+
             img_np = image[0].cpu().numpy().transpose(1, 2, 0)
+            # img_np = img_np * np.array([0.229, 0.224, 0.225]) + np.array([0.485, 0.456, 0.406])
             img_np = np.clip(img_np, 0, 1)
 
-            pred_np = nn.functional.interpolate(
+            pred_temp = nn.functional.interpolate(
                     pred, depth.shape[-2:], mode='bilinear', align_corners=True)
-            pred_np = pred_np[0].cpu().numpy()
-            depth_np = depth[0].cpu().numpy()
-
-            pred_np = pred_np.squeeze()
-            depth_np = depth_np.squeeze()
-
-            valid_mask_np = (depth_np > 0) & (depth_np < 60)
-
-            error_map = np.abs(pred_np - depth_np)
-            min_error, max_error = np.min(error_map), np.max(error_map)
-            error_map[~valid_mask_np] = np.nan 
+            print(f"pred_temp shape: {pred_temp.shape}")
+            pred_np = pred_temp.squeeze().cpu().numpy()
+            depth_np = depth.squeeze().cpu().numpy()
+            # depth_np[depth_np == 0] = np.nan
             
-            print(f"pred depth: min: {np.min(pred_np)}, max: {np.max(pred_np)}, {pred_np.shape}")
-            print(f"depth_np: min: {np.min(depth_np)}, max: {np.max(depth_np)}, {depth_np.shape}")
-                    
+            valid_pred = pred_temp[valid_mask].cpu().numpy()
+            valid_depth = depth[valid_mask].cpu().numpy()
+            print(f"pred depth: min: {np.min(valid_pred)}, max: {np.max(valid_pred)}")
+            print(f"depth_np: min: {np.min(valid_depth)}, max: {np.max(valid_depth)}")
+            
+
+            # Calculate error only on valid regions
+            error_values = np.abs(valid_pred - valid_depth)
+            cmap = plt.get_cmap("turbo_r")
+            norm_error_values = (error_values - np.min(error_values)) / (np.max(error_values) - np.min(error_values))
+            color_norm_error_values = (cmap(norm_error_values)[..., :3] * 255).astype(np.uint8)
+            
+            # error_map = np.full_like(pred_np, fill_value=60)  
+            error_map = np.zeros((pred_np.shape[0], pred_np.shape[1], 3), dtype=np.uint8)
+
+            print(f"valid_mask shape: {valid_mask.squeeze().cpu().numpy().shape}")
+            print(f"error_map shape: {error_map.shape}")
+
+            error_map[valid_mask.squeeze().cpu().numpy()] = (0.8 * color_norm_error_values + (1 - 0.8) * error_map[valid_mask.squeeze().cpu().numpy()]).astype(np.uint8)  
+            print(f"valid_mask_shape: {np.sum(valid_mask.cpu().numpy())}, error_values shape: {error_values.shape}")
+
+            min_error = np.nanmin(error_values)
+            max_error = np.nanmax(error_values)
+            print(f"min_error: {min_error}; max_error: {max_error}")
+
+            
             # Create output dir
-            os.makedirs("/home/output/visualizations/GrandTour_ZoeDepth_snow", exist_ok=True)
+            os.makedirs(f"/mnt/GrandTour/visualizations/{config.csv_path.split('/')[-1].split('.')[-2]}", exist_ok=True) # args.dataset_file_path.split('/')[-1].split('.')[-2]
                         
-            # Add prediction visualization to the plot
-            plt.figure(figsize=(30, 20))
-            
-            # Original Image
-            plt.subplot(221)
-            plt.imshow(img_np)
-            plt.title("Original Image")
-            
-            # Error Map
-            plt.subplot(222)
-            plt.imshow(error_map, cmap='turbo_r', vmin=min_error, vmax=max_error)
-            plt.colorbar(label='Depth (m)')
-            plt.title("Error Map")
-            
-            # Prediction
-            plt.subplot(223)
-            plt.imshow(pred_np, cmap='turbo_r', vmin=np.min(depth_np), vmax=np.max(depth_np))
-            plt.colorbar(label='Depth (m)')
-            plt.title("Predicted Depth")
+            fig, axes = plt.subplots(2, 3, figsize=(36, 20))
+            fig.subplots_adjust(wspace=0.1, hspace=0.2)  # Adjust spacing between subplots
 
-            # GT depth
-            plt.subplot(224)
-            plt.imshow(depth_np, cmap='turbo_r', vmin=np.min(depth_np), vmax=np.max(depth_np))
-            plt.colorbar(label='Depth (m)')
-            plt.title("GT Depth")
+            # First row
+            axes[0, 0].imshow(img_np)
+            axes[0, 0].set_title("Original Image")
+            axes[0, 0].axis('off')
+
+            im = axes[0, 1].imshow(error_map, cmap='turbo_r', vmin=min_error, vmax=max_error)
+            fig.colorbar(im, ax=axes[0, 1], fraction=0.046, pad=0.04, label='Depth (m)')
+            axes[0, 1].set_title("Error Map")
+            axes[0, 1].axis('off')
+
+            norm_pred_np = (pred_np - np.min(pred_np)) / (np.max(pred_np) - np.min(pred_np))
+            im = axes[0, 2].imshow(norm_pred_np, cmap='turbo_r', vmin=np.min(norm_pred_np), vmax=np.max(norm_pred_np))
+            fig.colorbar(im, ax=axes[0, 2], fraction=0.046, pad=0.04, label='Depth (m)')
+            axes[0, 2].set_title("Normalized Predicted Depth")
+            axes[0, 2].axis('off')
+
+            # Second row
+            im = axes[1, 0].imshow(pred_np, cmap='turbo_r', vmin=np.min(depth_np), vmax=np.max(depth_np))
+            fig.colorbar(im, ax=axes[1, 0], fraction=0.046, pad=0.04, label='Depth (m)')
+            axes[1, 0].set_title("Predicted Depth")
+            axes[1, 0].axis('off')
+
+            im = axes[1, 1].imshow(depth_np, cmap='turbo_r', vmin=np.min(depth_np), vmax=np.max(depth_np))
+            fig.colorbar(im, ax=axes[1, 1], fraction=0.046, pad=0.04, label='Depth (m)')
+            axes[1, 1].set_title("GT Depth")
+            axes[1, 1].axis('off')
+
+            norm_depth_np = (depth_np - np.min(depth_np)) / (np.max(depth_np) - np.min(depth_np))
+            cmap = plt.get_cmap('turbo_r')
+            colored_depth = cmap(norm_depth_np)[..., :3] 
+
+            # Alpha blend with RGB image
+            overlay_img = np.copy(img_np)
+            overlay_img[valid_mask.squeeze().cpu().numpy()] = colored_depth[valid_mask.squeeze().cpu().numpy()]
+
+            axes[1, 2].imshow(overlay_img)
+            axes[1, 2].set_title("GT Depth Overlay")
+            axes[1, 2].axis('off')
             
-            plt.savefig(f"/home/output/visualizations/GrandTour_ZoeDepth_snow/sample_{i}.png")
-            plt.close()
+
+            base_vis_dir = f"/mnt/GrandTour/visualizations/{config.csv_path.split('/')[-1].split('.')[-2]}"
+            os.makedirs(base_vis_dir, exist_ok=True)
+            image_path = sample['image_path'][0]
+            print(f"image_path: {image_path}")
+            timestamp = image_path.split()[0].split('/')[-1].split('.')[0]
+
+            visuals = {
+                "original_image": (img_np, None, "Original Image"),
+                "error_map": (error_map, (min_error, max_error), "Error Map"),
+                "normalized_pred_depth": (norm_pred_np, (np.min(norm_pred_np), np.max(norm_pred_np)), "Normalized Predicted Depth"),
+                "predicted_depth": (pred_np, (np.min(depth_np), np.max(depth_np)), "Predicted Depth"),
+                "gt_depth": (depth_np, (np.min(depth_np), np.max(depth_np)), "GT Depth"),
+                "gt_overlay": (overlay_img, None, "GT Depth Overlay"),
+            }
+
+            for key, (data, vrange, title) in visuals.items():
+                fig, ax = plt.subplots(figsize=(12, 6))
+                if vrange:
+                    im = ax.imshow(data, cmap='turbo_r', vmin=vrange[0], vmax=vrange[1])
+                    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Depth (m)')
+                else:
+                    ax.imshow(data)
+                ax.set_title(title)
+                ax.axis('off')
+
+                out_dir = os.path.join(base_vis_dir, key)
+                os.makedirs(out_dir, exist_ok=True)
+                plt.savefig(os.path.join(out_dir, f"{timestamp}.png"))
+                plt.close()
 
         # Save image, depth, pred for visualization
         if "save_images" in config and config.save_images:

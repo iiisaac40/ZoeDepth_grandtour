@@ -229,7 +229,7 @@ DATASETS_CONFIG = {
     },
      "grandtour": {
         "dataset": "grandtour",
-        "grandtour_root": "/home/output/GrandTour/",
+        "grandtour_root": "/mnt",
         "eigen_crop": False,
         "garg_crop": True,
         "do_kb_crop": False,
