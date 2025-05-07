@@ -49,7 +49,13 @@ tar -xf /cluster/scratch/haozhu1/depth_data/updated_images/GrandTour/GrandTour.t
 
 module load stack/2024-04 gcc/8.5.0 cuda/12.1.1 eth_proxy
 
-apptainer exec --nv --containall --writable --env LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu  --env HF_HOME=/mnt/.cache/huggingface --env TRANSFORMERS_CACHE=/mnt/.cache/huggingface --env XDG_CACHE_HOME=/mnt/.cache --env MPLCONFIGDIR=/mnt/.config/matplotlib --bind $TMPDIR/GrandTour:/mnt/ --bind /cluster/scratch/haozhu1/ZoeDepth_grandtour:/home/grand_tour_depth_benchmark/evaluation/ZoeDepth_grandtour $TMPDIR/grandtour_depth_benchmark2.sif /bin/bash -c " \
+apptainer exec --nv --containall --writable --env LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu   \
+--env HF_HOME=/mnt/.cache/huggingface \
+--env TRANSFORMERS_CACHE=/mnt/.cache/huggingface \
+--env XDG_CACHE_HOME=/mnt/.cache \
+--env MPLCONFIGDIR=/mnt/.config/matplotlib \
+--bind $TMPDIR/GrandTour:/mnt/ \
+$TMPDIR/grandtour_depth_benchmark2.sif /bin/bash -c " \
 export HOME=/home && export KLEINKRAM_ACTIVE=ACTIVE && \
 source /opt/conda/etc/profile.d/conda.sh && \
 conda activate grandtour && \

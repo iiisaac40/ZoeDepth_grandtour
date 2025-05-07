@@ -8,7 +8,7 @@ python sanity_hub.py && \
 python /home/grand_tour_depth_benchmark/evaluation/ZoeDepth_grandtour/evaluate.py \
                         -m zoedepth -d grandtour -p {pretrained_ckpt} \
                         --accumulate_level {accum_frames}  \
-                        --csv_path {csv_file} 
+                        --csv_path {csv_file} ----grandtour_root {path/to/depth/images/GrandTour}
 
 ```
 
@@ -18,25 +18,6 @@ Refer to [zoedepth/data/grandtour.py](zoedepth/data/grandtour.py#L89) by chaning
 # previous code ....
 
 filelist_path = os.path.join(data_dir_root, 'txt_files', f"test_{accumulate_level}_files.txt")
-
-```
-
-and also change the `data_dir_root` above here at [zoedepth/utils/config.py](zoedepth/utils/config.py#L232)
-
-```bash
-# previous code ...
-
-"grandtour": {
-        "dataset": "grandtour",
-        "grandtour_root": "/mnt", # <--- here
-        "eigen_crop": False,
-        "garg_crop": True,
-        "do_kb_crop": False,
-        "min_depth_eval": 1e-3,
-        "max_depth_eval": 60,
-        "min_depth": 1e-3,
-        "max_depth": 60,
-},
 
 ```
 

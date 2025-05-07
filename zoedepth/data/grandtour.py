@@ -95,8 +95,8 @@ class GRANDTOUR(Dataset):
         self.do_kb_crop = True
 
     def __getitem__(self, idx):
-        image_path = os.path.join(self.data_dir_root, 'GrandTour', self.filelist[idx].split(' ')[0])
-        depth_path = os.path.join(self.data_dir_root, 'GrandTour', self.filelist[idx].split(' ')[1])
+        image_path = os.path.join(self.data_dir_root, self.filelist[idx].split(' ')[0])
+        depth_path = os.path.join(self.data_dir_root, self.filelist[idx].split(' ')[1])
         
 
         image = Image.open(image_path)
