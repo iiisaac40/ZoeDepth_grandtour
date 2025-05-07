@@ -8,7 +8,7 @@ python sanity_hub.py && \
 python /home/grand_tour_depth_benchmark/evaluation/ZoeDepth_grandtour/evaluate.py \
                         -m zoedepth -d grandtour -p {pretrained_ckpt} \
                         --accumulate_level {accum_frames}  \
-                        --csv_path {csv_file} ----grandtour_root {path/to/depth/images/GrandTour}
+                        --csv_path {csv_file} --grandtour_root {path/to/depth/images/GrandTour}
 
 ```
 
